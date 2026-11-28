@@ -8,7 +8,7 @@ namespace Krono_Agent;
 public sealed partial class MainWindow
 {
     const uint AppCommandMessage = 0x0319;
-    const uint XButtonUp = 0x020C;
+    const uint XButtonDown = 0x020B, XButtonUp = 0x020C;
     const nuint NavigationSubclass = 2;
     NavigationWindowProc? navigationWindowProc;
     MessageHook? navigationMouseHook;
@@ -27,11 +27,25 @@ public sealed partial class MainWindow
         navigationWindowProc = HandleNavigationCommand;
         if (SetWindowSubclass(window, navigationWindowProc, NavigationSubclass, 0))
             Closed += (_, _) => RemoveWindowSubclass(window, navigationWindowProc, NavigationSubclass);
+        uint capturedSideButtons = 0;
         navigationMouseHook = (code, message, address) => {
-            if (code >= 0 && message == XButtonUp && GetForegroundWindow() == window) {
+            if (code >= 0 && message is XButtonDown or XButtonUp && GetForegroundWindow() == window) {
                 var click = Marshal.PtrToStructure<MouseHookData>(address);
                 var button = click.MouseData >> 16;
-                if (button is 1 or 2 && QueueNavigation(button == 1 ? -1 : 1)) return 1;
+                if (button is 1 or 2) {
+                    var direction = button == 1 ? -1 : 1;
+                    var action = direction < 0 ? AppBack : AppForward;
+                    if (message == XButtonDown && action.IsEnabled) {
+                        capturedSideButtons |= button;
+                        return 1;
+                    }
+                    // Consume both halves of the click to keep WinUI's pointer state balanced.
+                    if (message == XButtonUp && (capturedSideButtons & button) != 0) {
+                        capturedSideButtons &= ~button;
+                        QueueNavigation(direction);
+                        return 1;
+                    }
+                }
             }
             return CallNextHookEx(0, code, message, address);
         };
@@ -43,6 +57,7 @@ public sealed partial class MainWindow
             if (hook == 0) return;
             UnhookWindowsHookEx(hook);
             hook = 0;
+            capturedSideButtons = 0;
         }
         void InstallMouseHook()
         {
