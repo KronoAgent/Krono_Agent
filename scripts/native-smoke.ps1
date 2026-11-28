@@ -1668,6 +1668,7 @@ public static class PluginFixture {
         if (![KronoWindowCapture]::SetCursorPos([int]($buttonBounds.Left + $buttonBounds.Width / 2), [int]($buttonBounds.Top + $buttonBounds.Height / 2))) {
             throw "Could not hover $Button"
         }
+        [KronoWindowCapture]::mouse_event(1, 1, 0, 0, [UIntPtr]::Zero)
         $condition = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $Hint)
         $deadline = (Get-Date).AddSeconds(4)
         do {

@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
 
@@ -80,33 +79,47 @@ public sealed partial class MainWindow
 
     void InitializeNavigationHints()
     {
-        var back = AttachHint(BackHintTarget, "Go back (Alt+Left)");
-        var forward = AttachHint(ForwardHintTarget, "Go forward (Alt+Right)");
+        var delay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        FrameworkElement? hovered = null;
+        string label = "";
         long lastHintClosed = -1000;
-        BackHintTarget.PointerEntered += (_, _) => SwitchHint(back, forward);
-        ForwardHintTarget.PointerEntered += (_, _) => SwitchHint(forward, back);
-        BackHintTarget.PointerExited += (_, _) => CloseHint(back);
-        ForwardHintTarget.PointerExited += (_, _) => CloseHint(forward);
+        delay.Tick += (_, _) => ShowHint();
+        Bind(BackHintTarget, "Go back (Alt+Left)");
+        Bind(ForwardHintTarget, "Go forward (Alt+Right)");
+        Activated += (_, args) => {
+            if (args.WindowActivationState == WindowActivationState.Deactivated) HideHint();
+        };
+        Closed += (_, _) => HideHint();
 
-        void SwitchHint(ToolTip current, ToolTip previous)
+        void Bind(FrameworkElement target, string hint)
         {
-            CloseHint(previous);
-            if (Environment.TickCount64 - lastHintClosed < 150) current.IsOpen = true;
+            target.AddHandler(UIElement.PointerEnteredEvent, new PointerEventHandler((_, _) => {
+                hovered = target;
+                label = hint;
+                if (NavigationHint.Visibility == Visibility.Visible || Environment.TickCount64 - lastHintClosed < 150) ShowHint();
+                else { delay.Stop(); delay.Start(); }
+            }), true);
+            target.AddHandler(UIElement.PointerExitedEvent, new PointerEventHandler((_, _) => {
+                if (ReferenceEquals(hovered, target)) HideHint();
+            }), true);
         }
 
-        void CloseHint(ToolTip hint)
+        void ShowHint()
         {
-            if (!hint.IsOpen) return;
-            hint.IsOpen = false;
-            lastHintClosed = Environment.TickCount64;
+            delay.Stop();
+            if (hovered is null) return;
+            var origin = hovered.TransformToVisual(WindowLayout).TransformPoint(new(0, hovered.ActualHeight));
+            NavigationHint.Margin = new Thickness(origin.X, origin.Y + 4, 0, 0);
+            NavigationHintText.Text = label;
+            NavigationHint.Visibility = Visibility.Visible;
         }
 
-        static ToolTip AttachHint(FrameworkElement target, string text)
+        void HideHint()
         {
-            var hint = new ToolTip { Content = text, IsHitTestVisible = false, Placement = PlacementMode.Bottom };
-            ToolTipService.SetPlacement(target, PlacementMode.Bottom);
-            ToolTipService.SetToolTip(target, hint);
-            return hint;
+            delay.Stop();
+            hovered = null;
+            if (NavigationHint.Visibility == Visibility.Visible) lastHintClosed = Environment.TickCount64;
+            NavigationHint.Visibility = Visibility.Collapsed;
         }
     }
 

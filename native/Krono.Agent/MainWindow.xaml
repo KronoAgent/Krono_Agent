@@ -8,7 +8,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid Background="{ThemeResource KronoBackground}" Language="en-US" FlowDirection="LeftToRight">
+    <Grid x:Name="WindowLayout" Background="{ThemeResource KronoBackground}" Language="en-US" FlowDirection="LeftToRight">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -37,5 +37,10 @@
         </StackPanel>
 
         <Frame x:Name="RootFrame" Grid.Row="1" Margin="0,-2,0,0" />
+        <Border x:Name="NavigationHint" Grid.RowSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="{ThemeResource KronoSurface}" BorderBrush="{ThemeResource KronoBorder}" BorderThickness="1"
+                CornerRadius="8" Padding="9,5" Visibility="Collapsed" IsHitTestVisible="False">
+            <TextBlock x:Name="NavigationHintText" FontFamily="{ThemeResource KronoTextFont}" FontSize="12"/>
+        </Border>
     </Grid>
 </Window>
