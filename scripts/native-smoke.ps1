@@ -36,9 +36,12 @@ public static class KronoWindowCapture {
         return SendInput((uint)entries.Length, entries, Marshal.SizeOf(typeof(Input))) == entries.Length;
     }
     public static bool PressSideButton(uint button) {
+        return ClickMouse(0x80, 0x100, button);
+    }
+    public static bool ClickMouse(uint down, uint up, uint button) {
         var entries = new Input[] {
-            new Input { Data = new InputData { Mouse = new Mouse { Flags = 0x80, Data = button } } },
-            new Input { Data = new InputData { Mouse = new Mouse { Flags = 0x100, Data = button } } }
+            new Input { Data = new InputData { Mouse = new Mouse { Flags = down, Data = button } } },
+            new Input { Data = new InputData { Mouse = new Mouse { Flags = up, Data = button } } }
         };
         return SendInput((uint)entries.Length, entries, Marshal.SizeOf(typeof(Input))) == entries.Length;
     }
@@ -375,9 +378,7 @@ function RightClick([string]$Id) {
     if (![KronoWindowCapture]::SetCursorPos([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))) {
         throw "Could not move the pointer to $Id"
     }
-    [KronoWindowCapture]::mouse_event(8, 0, 0, 0, [UIntPtr]::Zero)
-    Start-Sleep -Milliseconds 70
-    [KronoWindowCapture]::mouse_event(16, 0, 0, 0, [UIntPtr]::Zero)
+    if (![KronoWindowCapture]::ClickMouse(8, 16, 0)) { throw "Windows did not inject the right click on $Id" }
 }
 function DragGameCell([int]$From, [int]$To) {
     $source = WaitForBounds ('GameCell' + $From)
@@ -1954,7 +1955,13 @@ public static class PluginFixture {
             RightClick 'GameCell63'
             $deadline = (Get-Date).AddSeconds(2)
             while ((Find 'GameCell63').Current.Name -notmatch 'flagged$' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
-            if ((Find 'GameCell63').Current.Name -notmatch 'flagged$') { throw 'Minesweeper right click did not mark the tile' }
+            if ((Find 'GameCell63').Current.Name -notmatch 'flagged$') {
+                $bounds = WaitForBounds 'GameCell63'
+                $targetPoint = New-Object Windows.Point(($bounds.Left + $bounds.Width / 2), ($bounds.Top + $bounds.Height / 2))
+                $hit = [Windows.Automation.AutomationElement]::FromPoint($targetPoint).Current
+                $status = (Find 'GameStatus').Current.Name
+                throw "Minesweeper right click did not mark the tile. At $targetPoint hit $($hit.AutomationId)/$($hit.ClassName). Game status: $status"
+            }
             Invoke 'GameCell0'
             if ((Find 'GameStatus').Current.Name -match '^Score 0$') { throw 'Native minesweeper did not reveal the first cell' }
             if ((Find 'GameCell0').Current.Name -notmatch ': [0-8]$') { throw 'Minesweeper did not expose its dug count' }

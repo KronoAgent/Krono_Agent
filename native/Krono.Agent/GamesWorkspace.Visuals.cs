@@ -212,7 +212,16 @@ public sealed partial class GamesWorkspace
             }
             var button = GameTileButton(i, x + 2, y + 2, 56, 56, surface, flags[i] ? "flagged" : "unopened", ground, 5);
             button.Click += (_, _) => PlayAt(x + 30, y + 30);
-            button.RightTapped += (_, e) => { e.Handled = true; ToggleMineFlag(index); };
+            button.AddHandler(UIElement.PointerReleasedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) => {
+                if (e.GetCurrentPoint(button).Properties.PointerUpdateKind != Microsoft.UI.Input.PointerUpdateKind.RightButtonReleased) return;
+                e.Handled = true;
+                ToggleMineFlag(index);
+            }), true);
+            button.RightTapped += (_, e) => {
+                if (e.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Mouse) return;
+                e.Handled = true;
+                ToggleMineFlag(index);
+            };
         }
     }
     Button GameTileButton(int index, double x, double y, double width, double height, object content, string label, Brush background, double radius)
