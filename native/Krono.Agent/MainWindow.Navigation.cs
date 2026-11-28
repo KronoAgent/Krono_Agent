@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Input;
 using Windows.System;
 
 namespace Krono_Agent;
@@ -20,6 +21,7 @@ public sealed partial class MainWindow
         AppForward.Content = BrowserWorkspace.ToolbarIcon(Symbol.Forward);
         KronoInputMotion.StyleButton(AppBack);
         KronoInputMotion.StyleButton(AppForward);
+        InitializeNavigationHitRegion();
         InitializeNavigationHints();
         AppBack.Click += (_, _) => NavigateHistory(-1);
         AppForward.Click += (_, _) => NavigateHistory(1);
@@ -75,6 +77,31 @@ public sealed partial class MainWindow
             else InstallMouseHook();
         };
         Closed += (_, _) => RemoveMouseHook();
+    }
+
+    void InitializeNavigationHitRegion()
+    {
+        var source = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
+        Windows.Graphics.RectInt32? last = null;
+        NavigationButtons.Loaded += (_, _) => {
+            if (NavigationButtons.XamlRoot is { } root) root.Changed += (_, _) => UpdateRegion();
+            UpdateRegion();
+        };
+        NavigationButtons.SizeChanged += (_, _) => UpdateRegion();
+        AppTitleBar.SizeChanged += (_, _) => UpdateRegion();
+
+        void UpdateRegion()
+        {
+            if (NavigationButtons.XamlRoot is not { } root || NavigationButtons.ActualWidth <= 0) return;
+            var bounds = NavigationButtons.TransformToVisual(WindowLayout).TransformBounds(
+                new Windows.Foundation.Rect(0, 0, NavigationButtons.ActualWidth, NavigationButtons.ActualHeight));
+            var scale = root.RasterizationScale;
+            var rect = new Windows.Graphics.RectInt32((int)Math.Floor(bounds.Left * scale), (int)Math.Floor(bounds.Top * scale),
+                (int)Math.Ceiling(bounds.Width * scale), (int)Math.Ceiling(bounds.Height * scale));
+            if (rect.Equals(last)) return;
+            source.SetRegionRects(NonClientRegionKind.Passthrough, [rect]);
+            last = rect;
+        }
     }
 
     void InitializeNavigationHints()
