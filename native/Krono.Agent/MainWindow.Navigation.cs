@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
 
@@ -15,8 +17,11 @@ public sealed partial class MainWindow
 
     void InitializeAppNavigation()
     {
+        AppBack.Content = BrowserWorkspace.ToolbarIcon(Symbol.Back);
+        AppForward.Content = BrowserWorkspace.ToolbarIcon(Symbol.Forward);
         KronoInputMotion.StyleButton(AppBack);
         KronoInputMotion.StyleButton(AppForward);
+        InitializeNavigationHints();
         AppBack.Click += (_, _) => NavigateHistory(-1);
         AppForward.Click += (_, _) => NavigateHistory(1);
         if (Content is UIElement root) {
@@ -71,6 +76,38 @@ public sealed partial class MainWindow
             else InstallMouseHook();
         };
         Closed += (_, _) => RemoveMouseHook();
+    }
+
+    void InitializeNavigationHints()
+    {
+        var back = AttachHint(BackHintTarget, "Go back (Alt+Left)");
+        var forward = AttachHint(ForwardHintTarget, "Go forward (Alt+Right)");
+        long lastHintClosed = -1000;
+        BackHintTarget.PointerEntered += (_, _) => SwitchHint(back, forward);
+        ForwardHintTarget.PointerEntered += (_, _) => SwitchHint(forward, back);
+        BackHintTarget.PointerExited += (_, _) => CloseHint(back);
+        ForwardHintTarget.PointerExited += (_, _) => CloseHint(forward);
+
+        void SwitchHint(ToolTip current, ToolTip previous)
+        {
+            CloseHint(previous);
+            if (Environment.TickCount64 - lastHintClosed < 150) current.IsOpen = true;
+        }
+
+        void CloseHint(ToolTip hint)
+        {
+            if (!hint.IsOpen) return;
+            hint.IsOpen = false;
+            lastHintClosed = Environment.TickCount64;
+        }
+
+        static ToolTip AttachHint(FrameworkElement target, string text)
+        {
+            var hint = new ToolTip { Content = text, IsHitTestVisible = false, Placement = PlacementMode.Bottom };
+            ToolTipService.SetPlacement(target, PlacementMode.Bottom);
+            ToolTipService.SetToolTip(target, hint);
+            return hint;
+        }
     }
 
     void AddShortcut(UIElement root, VirtualKey key, int direction)

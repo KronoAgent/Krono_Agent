@@ -1663,6 +1663,21 @@ public static class PluginFixture {
     Find 'SettingsCategories' | Out-Null
     if (![KronoWindowCapture]::PressSideButton(2)) { throw 'Windows did not inject the forward mouse button' }
     Find 'Appearance' | Out-Null
+    function HoverNavigationHint([string]$Button, [string]$Hint) {
+        $buttonBounds = WaitForBounds $Button
+        if (![KronoWindowCapture]::SetCursorPos([int]($buttonBounds.Left + $buttonBounds.Width / 2), [int]($buttonBounds.Top + $buttonBounds.Height / 2))) {
+            throw "Could not hover $Button"
+        }
+        $condition = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $Hint)
+        $deadline = (Get-Date).AddSeconds(4)
+        do {
+            if ($script:window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)) { return }
+            Start-Sleep -Milliseconds 100
+        } while ((Get-Date) -lt $deadline)
+        throw "Could not see $Hint while hovering $Button"
+    }
+    HoverNavigationHint 'AppBack' 'Go back (Alt+Left)'
+    HoverNavigationHint 'AppForward' 'Go forward (Alt+Right)'
     foreach ($appearance in @('dark','halloween','light','system')) {
         SelectChoice 'Appearance' $appearance
         if ($appearance -eq 'system') { continue }

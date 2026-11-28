@@ -1332,3 +1332,9 @@ The native build, all 36 unit tests, TypeScript checking, and native sync, sched
 - Animate the context sidebar using compositor translations, with one workspace layout update per transition.
 - Park focus on blank clicks and recheck it after release so WinUI cannot leave another editor focused.
 - Capture seeded gameplay in higher resolution, keep the complete board centered and extend its palette into the space on either side.
+
+## Sidebar feedback and preview framing
+
+- Fade and slide the closing context sidebar together so the close is visible from the first animation frames.
+- Match the browser's flat toolbar buttons in the title bar and switch shortcut hints as the pointer crosses between them.
+- Frame the full game board on a solid, theme-aware background without raster readback.

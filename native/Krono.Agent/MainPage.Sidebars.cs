@@ -18,6 +18,7 @@ public sealed partial class MainPage
     bool contextVisible;
     int contextTransition;
     bool clearContextWhenHidden;
+    readonly UISettings sidebarMotionSettings = new();
 
     void ShowContext(FrameworkElement? content)
     {
@@ -27,7 +28,7 @@ public sealed partial class MainPage
             ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
         if (content is not null) KronoDesign.RefreshTypography(content);
         RefreshContextVisibility(content is not null);
-        if (replacing && new UISettings().AnimationsEnabled) AnimateContextContent();
+        if (replacing && sidebarMotionSettings.AnimationsEnabled) AnimateContextContent();
     }
 
     void AnimateContextContent()
@@ -62,7 +63,7 @@ public sealed partial class MainPage
         var rail = TranslationVisual(ContextRail);
         var viewport = ElementCompositionPreview.GetElementVisual(ContextViewport);
         viewport.Clip ??= viewport.Compositor.CreateInsetClip();
-        if (!new UISettings().AnimationsEnabled || (!show && !wasVisible)) {
+        if (!sidebarMotionSettings.AnimationsEnabled || (!show && !wasVisible)) {
             Finish();
             return;
         }
@@ -70,6 +71,13 @@ public sealed partial class MainPage
         var compositor = rail.Compositor;
         var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
         Animate(rail, show ? 0 : -ContextViewport.Width, !wasVisible ? -ContextViewport.Width : null);
+        var opacity = compositor.CreateScalarKeyFrameAnimation();
+        if (show && !wasVisible) opacity.InsertKeyFrame(0, 1);
+        else opacity.InsertExpressionKeyFrame(0, "this.StartingValue");
+        if (!show) opacity.InsertKeyFrame(.35f, .4f);
+        opacity.InsertKeyFrame(1, show ? 1 : 0);
+        opacity.Duration = TimeSpan.FromMilliseconds(show ? 105 : 95);
+        rail.StartAnimation("Opacity", opacity);
         batch.Completed += (_, _) => { Finish(); batch.Dispose(); };
         batch.End();
 
@@ -80,7 +88,7 @@ public sealed partial class MainPage
             else animation.InsertExpressionKeyFrame(0, "this.StartingValue");
             animation.InsertKeyFrame(1, new((float)target, 0, 0),
                 compositor.CreateCubicBezierEasingFunction(new(.22f, .72f), new(.32f, 1)));
-            animation.Duration = TimeSpan.FromMilliseconds(165);
+            animation.Duration = TimeSpan.FromMilliseconds(show ? 165 : 110);
             visual.StartAnimation("Translation", animation);
         }
 
@@ -93,6 +101,8 @@ public sealed partial class MainPage
                 ContextRail.Visibility = Visibility.Collapsed;
                 if (clearContextWhenHidden) ContextBody.Content = null;
             }
+            rail.StopAnimation("Opacity");
+            rail.Opacity = 1;
         }
 
         static Visual TranslationVisual(UIElement element)

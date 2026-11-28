@@ -246,7 +246,7 @@ public sealed partial class BrowserWorkspace : Grid, IDisposable
         return (title, icon);
     }
 
-    static FontIcon ToolbarIcon(Symbol symbol) => new() {
+    internal static FontIcon ToolbarIcon(Symbol symbol) => new() {
         Glyph = char.ConvertFromUtf32((int)symbol),
         FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"),
         FontSize = 14,
