@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Input;
 using Windows.System;
@@ -106,47 +108,57 @@ public sealed partial class MainWindow
 
     void InitializeNavigationHints()
     {
-        var delay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        var window = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(75) };
+        var back = FrameworkElementAutomationPeer.CreatePeerForElement(AppBack);
+        var forward = FrameworkElementAutomationPeer.CreatePeerForElement(AppForward);
         FrameworkElement? hovered = null;
-        string label = "";
-        long lastHintClosed = -1000;
-        delay.Tick += (_, _) => ShowHint();
-        Bind(BackHintTarget, "Go back (Alt+Left)");
-        Bind(ForwardHintTarget, "Go forward (Alt+Right)");
-        Activated += (_, args) => {
-            if (args.WindowActivationState == WindowActivationState.Deactivated) HideHint();
-        };
-        Closed += (_, _) => HideHint();
+        long enteredAt = 0;
 
-        void Bind(FrameworkElement target, string hint)
-        {
-            target.AddHandler(UIElement.PointerEnteredEvent, new PointerEventHandler((_, _) => {
+        timer.Tick += (_, _) => {
+            if (GetForegroundWindow() != window || !GetCursorPos(out var cursor)) {
+                HideHint();
+                return;
+            }
+
+            // Use screen coordinates because Windows can deliver caption-area pointer
+            // movement through the non-client path even beside interactive controls.
+            var point = new Windows.Foundation.Point(cursor.X, cursor.Y);
+            var target = back?.GetBoundingRectangle().Contains(point) == true ? BackHintTarget :
+                forward?.GetBoundingRectangle().Contains(point) == true ? ForwardHintTarget : null;
+            var now = Environment.TickCount64;
+            if (target is null) { HideHint(); return; }
+            if (!ReferenceEquals(hovered, target)) {
                 hovered = target;
-                label = hint;
-                if (NavigationHint.Visibility == Visibility.Visible || Environment.TickCount64 - lastHintClosed < 150) ShowHint();
-                else { delay.Stop(); delay.Start(); }
-            }), true);
-            target.AddHandler(UIElement.PointerExitedEvent, new PointerEventHandler((_, _) => {
-                if (ReferenceEquals(hovered, target)) HideHint();
-            }), true);
-        }
+                enteredAt = NavigationHint.Visibility == Visibility.Visible ? now - 400 : now;
+            }
+            if (now - enteredAt < 400) return;
 
-        void ShowHint()
-        {
-            delay.Stop();
-            if (hovered is null) return;
-            var origin = hovered.TransformToVisual(WindowLayout).TransformPoint(new(0, hovered.ActualHeight));
+            var label = target == BackHintTarget ? "Go back (Alt+Left)" : "Go forward (Alt+Right)";
+            if (NavigationHint.Visibility == Visibility.Visible && NavigationHintText.Text == label) return;
+            var origin = target.TransformToVisual(WindowLayout).TransformPoint(new(0, target.ActualHeight));
             NavigationHint.Margin = new Thickness(origin.X, origin.Y + 4, 0, 0);
             NavigationHintText.Text = label;
+            AutomationProperties.SetName(NavigationHintText, label);
             NavigationHint.Visibility = Visibility.Visible;
-        }
+        };
+        Activated += (_, args) => {
+            if (args.WindowActivationState == WindowActivationState.Deactivated) Stop();
+            else timer.Start();
+        };
+        if (GetForegroundWindow() == window) timer.Start();
+        Closed += (_, _) => Stop();
 
         void HideHint()
         {
-            delay.Stop();
             hovered = null;
-            if (NavigationHint.Visibility == Visibility.Visible) lastHintClosed = Environment.TickCount64;
             NavigationHint.Visibility = Visibility.Collapsed;
+        }
+
+        void Stop()
+        {
+            timer.Stop();
+            HideHint();
         }
     }
 
@@ -203,5 +215,6 @@ public sealed partial class MainWindow
     [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(nint hook);
     [DllImport("user32.dll")] static extern nint CallNextHookEx(nint hook, int code, nuint wParam, nint lParam);
     [DllImport("user32.dll")] static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out NativePoint point);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)] static extern nint GetModuleHandleW(string? module);
 }
