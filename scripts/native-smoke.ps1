@@ -35,6 +35,13 @@ public static class KronoWindowCapture {
         };
         return SendInput((uint)entries.Length, entries, Marshal.SizeOf(typeof(Input))) == entries.Length;
     }
+    public static bool PressSideButton(uint button) {
+        var entries = new Input[] {
+            new Input { Data = new InputData { Mouse = new Mouse { Flags = 0x80, Data = button } } },
+            new Input { Data = new InputData { Mouse = new Mouse { Flags = 0x100, Data = button } } }
+        };
+        return SendInput((uint)entries.Length, entries, Marshal.SizeOf(typeof(Input))) == entries.Length;
+    }
     static Input Key(ushort key, uint flags) {
         return new Input { Type = 1, Data = new InputData { Keyboard = new Keyboard { Key = key, Flags = flags } } };
     }
@@ -1631,16 +1638,23 @@ public static class PluginFixture {
     SelectSettingsCategory 'Appearance'
     $settingsBounds = WaitForBounds 'SettingsCategories'
     if (!(New-Object -ComObject WScript.Shell).AppActivate($script:process.Id)) { throw 'Could not activate the navigation test window' }
+    Start-Sleep -Milliseconds 350
+    if ([KronoWindowCapture]::GetForegroundWindow() -ne $script:process.MainWindowHandle) { throw 'The navigation test window is not foreground' }
     [KronoWindowCapture]::SetCursorPos([int]($settingsBounds.Left + 10), [int]($settingsBounds.Top + 10)) | Out-Null
-    [KronoWindowCapture]::mouse_event(0x80, 0, 0, 1, [UIntPtr]::Zero)
-    [KronoWindowCapture]::mouse_event(0x100, 0, 0, 1, [UIntPtr]::Zero)
-    Start-Sleep -Milliseconds 250
+    if (![KronoWindowCapture]::PressSideButton(1)) { throw 'Windows did not inject the back mouse button' }
+    Start-Sleep -Milliseconds 350
+    $settingsList = FindOptional 'SettingsCategories'
+    $category = if ($settingsList) { $settingsList.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name }
+    if ($category -ne 'Account') {
+        $faults = Join-Path $ReportDirectory 'native-errors.log'
+        if (Test-Path $faults) { Get-Content -LiteralPath $faults -Tail 12 | Write-Output }
+        throw ('The back mouse button did not navigate exactly one step. Settings category: ' + $category)
+    }
     Invoke 'AppBack'
     Find 'New project' -ByName | Out-Null
     Invoke 'AppForward'
     Find 'SettingsCategories' | Out-Null
-    [KronoWindowCapture]::mouse_event(0x80, 0, 0, 2, [UIntPtr]::Zero)
-    [KronoWindowCapture]::mouse_event(0x100, 0, 0, 2, [UIntPtr]::Zero)
+    if (![KronoWindowCapture]::PressSideButton(2)) { throw 'Windows did not inject the forward mouse button' }
     Find 'Appearance' | Out-Null
     foreach ($appearance in @('dark','halloween','light','system')) {
         SelectChoice 'Appearance' $appearance

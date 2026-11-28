@@ -31,14 +31,12 @@ public sealed partial class MainWindow
             if (code >= 0 && message == XButtonUp && GetForegroundWindow() == window) {
                 var click = Marshal.PtrToStructure<MouseHookData>(address);
                 var button = click.MouseData >> 16;
-                var target = WindowFromPoint(click.Position);
-                if (button is 1 or 2 && (target == window || IsChild(window, target)) &&
-                    QueueNavigation(button == 1 ? -1 : 1)) return 1;
+                if (button is 1 or 2 && QueueNavigation(button == 1 ? -1 : 1)) return 1;
             }
             return CallNextHookEx(0, code, message, address);
         };
         // WinUI may consume extended mouse messages before forwarding an app command.
-        // Listen only while this window is active, and leave clicks in all other windows alone.
+        // Handle only side buttons while Krono is the foreground window.
         nint hook = 0;
         void RemoveMouseHook()
         {
@@ -46,9 +44,16 @@ public sealed partial class MainWindow
             UnhookWindowsHookEx(hook);
             hook = 0;
         }
+        void InstallMouseHook()
+        {
+            if (hook != 0) return;
+            hook = SetWindowsHookExW(14, navigationMouseHook, GetModuleHandleW(null), 0);
+            if (hook == 0) App.RecordFault("Mouse navigation hook", new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+        }
+        if (GetForegroundWindow() == window) InstallMouseHook();
         Activated += (_, args) => {
             if (args.WindowActivationState == WindowActivationState.Deactivated) RemoveMouseHook();
-            else if (hook == 0) hook = SetWindowsHookExW(14, navigationMouseHook, GetModuleHandleW(null), 0);
+            else InstallMouseHook();
         };
         Closed += (_, _) => RemoveMouseHook();
     }
@@ -102,11 +107,9 @@ public sealed partial class MainWindow
     }
 
     delegate nint MessageHook(int code, nuint wParam, nint lParam);
-    [DllImport("user32.dll")] static extern nint SetWindowsHookExW(int id, MessageHook callback, nint module, uint thread);
+    [DllImport("user32.dll", SetLastError = true)] static extern nint SetWindowsHookExW(int id, MessageHook callback, nint module, uint thread);
     [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(nint hook);
     [DllImport("user32.dll")] static extern nint CallNextHookEx(nint hook, int code, nuint wParam, nint lParam);
-    [DllImport("user32.dll")] static extern bool IsChild(nint parent, nint child);
     [DllImport("user32.dll")] static extern nint GetForegroundWindow();
-    [DllImport("user32.dll")] static extern nint WindowFromPoint(NativePoint point);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)] static extern nint GetModuleHandleW(string? module);
 }
