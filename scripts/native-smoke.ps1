@@ -368,9 +368,15 @@ function WaitForBounds([string]$Id) {
     throw "No screen bounds for $Id"
 }
 function RightClick([string]$Id) {
+    if ([KronoWindowCapture]::GetForegroundWindow() -ne $script:process.MainWindowHandle -and
+        !(New-Object -ComObject WScript.Shell).AppActivate($script:process.Id)) { throw "Could not activate the window to right-click $Id" }
+    Start-Sleep -Milliseconds 150
     $bounds = WaitForBounds $Id
-    [KronoWindowCapture]::SetCursorPos([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2)) | Out-Null
+    if (![KronoWindowCapture]::SetCursorPos([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))) {
+        throw "Could not move the pointer to $Id"
+    }
     [KronoWindowCapture]::mouse_event(8, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 70
     [KronoWindowCapture]::mouse_event(16, 0, 0, 0, [UIntPtr]::Zero)
 }
 function DragGameCell([int]$From, [int]$To) {
