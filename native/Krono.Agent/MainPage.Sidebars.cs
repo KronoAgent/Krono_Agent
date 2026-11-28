@@ -52,18 +52,16 @@ public sealed partial class MainPage
         contextVisible = show;
         var transition = ++contextTransition;
         var wasVisible = ContextRail.Visibility == Visibility.Visible;
-        var hadReservedSpace = ContextColumn.Width.Value > 0;
-        ContextColumn.Width = new GridLength(0);
-        ContextRail.IsHitTestVisible = show;
+        ContextColumn.Width = new GridLength(show ? ContextViewport.Width : 0);
+        ContextViewport.IsHitTestVisible = show;
+        WorkspaceSurface.CornerRadius = show ? new CornerRadius(0) : new CornerRadius(14, 0, 0, 0);
         if (show) {
             ContextRail.Visibility = Visibility.Visible;
-            WorkspaceSurface.CornerRadius = new CornerRadius(0);
         }
 
         var rail = TranslationVisual(ContextRail);
-        var workspace = TranslationVisual(WorkspaceSurface);
-        var layout = ElementCompositionPreview.GetElementVisual(WorkspaceLayout);
-        layout.Clip ??= layout.Compositor.CreateInsetClip();
+        var viewport = ElementCompositionPreview.GetElementVisual(ContextViewport);
+        viewport.Clip ??= viewport.Compositor.CreateInsetClip();
         if (!new UISettings().AnimationsEnabled || (!show && !wasVisible)) {
             Finish();
             return;
@@ -71,9 +69,7 @@ public sealed partial class MainPage
 
         var compositor = rail.Compositor;
         var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
-        Animate(rail, show ? 0 : -ContextRail.Width, !wasVisible ? -ContextRail.Width : null);
-        Animate(workspace, show ? ContextRail.Width : 0,
-            hadReservedSpace ? ContextRail.Width : !wasVisible ? 0 : null);
+        Animate(rail, show ? 0 : -ContextViewport.Width, !wasVisible ? -ContextViewport.Width : null);
         batch.Completed += (_, _) => { Finish(); batch.Dispose(); };
         batch.End();
 
@@ -91,14 +87,10 @@ public sealed partial class MainPage
         void Finish()
         {
             if (transition != contextTransition) return;
-            ContextColumn.Width = new GridLength(show ? ContextRail.Width : 0);
-            foreach (var visual in new[] { rail, workspace }) {
-                visual.StopAnimation("Translation");
-                visual.Properties.InsertVector3("Translation", Vector3.Zero);
-            }
+            rail.StopAnimation("Translation");
+            rail.Properties.InsertVector3("Translation", Vector3.Zero);
             if (!show) {
                 ContextRail.Visibility = Visibility.Collapsed;
-                WorkspaceSurface.CornerRadius = new CornerRadius(14, 0, 0, 0);
                 if (clearContextWhenHidden) ContextBody.Content = null;
             }
         }

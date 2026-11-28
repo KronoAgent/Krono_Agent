@@ -1329,6 +1329,6 @@ The native build, all 36 unit tests, TypeScript checking, and native sync, sched
 ## Sidebar motion and game previews
 
 - Put the shared flat navigation buttons beside the application name and route raw mouse side-button releases from the application’s window.
-- Animate the context sidebar and workspace using compositor translations, with a single layout update at the end of opening.
+- Animate the context sidebar using compositor translations, with one workspace layout update per transition.
 - Park focus on blank clicks and recheck it after release so WinUI cannot leave another editor focused.
 - Capture seeded gameplay in higher resolution, keep the complete board centered and extend its palette into the space on either side.
