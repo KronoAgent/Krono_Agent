@@ -53,6 +53,8 @@ public sealed partial class MainPage : Page
         revealedAuthPassword = KronoInputMotion.StylePasswordReveal(AuthPasswordField, PasswordInput, PasswordVisibility, PasswordEye);
         AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(ReleaseInputFocusOnOutsidePress), true);
         AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(ReleaseInputFocusOnOutsideRelease), true);
+        GettingFocus += SuppressEditorFocusOnOutsideClick;
+        PointerCanceled += (_, _) => outsideInputPointer = null;
         DismissedInputFocus.LostFocus += (_, _) => DismissedInputFocus.IsTabStop = false;
         BrowserNavigation.Icon = BrowserWorkspace.BrowserTabIcon();
         UpdateButton.Icon = KronoDesign.NavigationIcon(Symbol.Download);
@@ -160,8 +162,19 @@ public sealed partial class MainPage : Page
     void ReleaseInputFocusOnOutsideRelease(object sender, PointerRoutedEventArgs args)
     {
         if (outsideInputPointer != args.Pointer.PointerId) return;
-        outsideInputPointer = null;
-        if (!IsEditorTarget(args)) DispatcherQueue.TryEnqueue(ParkInputFocus);
+        if (IsEditorTarget(args)) { outsideInputPointer = null; return; }
+        DispatcherQueue.TryEnqueue(() => {
+            outsideInputPointer = null;
+            ParkInputFocus();
+        });
+    }
+
+    void SuppressEditorFocusOnOutsideClick(UIElement sender, GettingFocusEventArgs args)
+    {
+        if (outsideInputPointer is null || args.InputDevice == FocusInputDeviceKind.Keyboard ||
+            args.NewFocusedElement is not (TextBox or PasswordBox or RichEditBox)) return;
+        DismissedInputFocus.IsTabStop = true;
+        if (!args.TrySetNewFocusedElement(DismissedInputFocus)) DismissedInputFocus.IsTabStop = false;
     }
 
     static bool IsEditorTarget(PointerRoutedEventArgs args)
@@ -819,6 +832,7 @@ public sealed partial class MainPage : Page
         AddSyncSettings(panel);
         panel = AddCategory("Models");
         var modelPanel = panel;
+        AutomationProperties.SetAutomationId(modelPanel.Children[0], "ModelsHeading");
         var secret = new PasswordBox { HorizontalAlignment = HorizontalAlignment.Stretch, PasswordRevealMode = PasswordRevealMode.Hidden,
             Padding = new Thickness(12, 8, 46, 8) };
         var eyeIcon = new FontIcon { Glyph = "\uE890", FontFamily = new FontFamily("Segoe Fluent Icons"), FontSize = 14 };

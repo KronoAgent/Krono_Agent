@@ -1771,14 +1771,16 @@ public static class PluginFixture {
     if (!$editor.Current.HasKeyboardFocus) { throw 'Revealing the API key did not focus its text editor' }
     (Find 'Hide password' -ByName).GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     SetValue 'ProviderKey' 'fixture-local-placeholder'
+    if (!(New-Object -ComObject WScript.Shell).AppActivate($script:process.Id)) { throw 'Could not activate the focus test window' }
     (Find 'ProviderKey').SetFocus()
-    $outside = (Find 'Models' -ByName).Current.BoundingRectangle
+    $outside = WaitForBounds 'ModelsHeading'
     [KronoWindowCapture]::SetCursorPos([int]($outside.Left + $outside.Width / 2), [int]($outside.Top + $outside.Height / 2)) | Out-Null
     [KronoWindowCapture]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
     [KronoWindowCapture]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
     Start-Sleep -Milliseconds 200
-    if ([Windows.Automation.AutomationElement]::FocusedElement.Current.ControlType -eq [Windows.Automation.ControlType]::Edit) {
-        throw 'Clicking outside the provider key left an editor focused'
+    $focused = [Windows.Automation.AutomationElement]::FocusedElement.Current
+    if ($focused.ControlType -eq [Windows.Automation.ControlType]::Edit) {
+        throw ('Clicking outside the provider key left an editor focused: ' + $focused.AutomationId)
     }
     Invoke 'Save key' -ByName
     Start-Sleep -Milliseconds 500
