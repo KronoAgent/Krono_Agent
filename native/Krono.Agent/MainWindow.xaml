@@ -19,12 +19,14 @@
                     <Image Width="14" Height="14" VerticalAlignment="Center"><Image.Source><SvgImageSource UriSource="ms-appx:///Assets/Krono.svg"/></Image.Source></Image>
                     <TextBlock Text="Krono Agent" FontFamily="{ThemeResource KronoTextFont}" FontSize="12" VerticalAlignment="Center"/>
                     <StackPanel x:Name="NavigationButtons" Orientation="Horizontal" Spacing="2" Margin="4,0,0,0">
-                        <Border x:Name="BackHintTarget" Background="Transparent" Width="26" Height="26">
-                            <Button x:Name="AppBack" Width="26" Height="26" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" IsEnabled="False" AutomationProperties.AutomationId="AppBack" AutomationProperties.Name="Go back" AutomationProperties.AcceleratorKey="Alt+Left"/>
-                        </Border>
-                        <Border x:Name="ForwardHintTarget" Background="Transparent" Width="26" Height="26">
-                            <Button x:Name="AppForward" Width="26" Height="26" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" IsEnabled="False" AutomationProperties.AutomationId="AppForward" AutomationProperties.Name="Go forward" AutomationProperties.AcceleratorKey="Alt+Right"/>
-                        </Border>
+                        <Button x:Name="AppBack" Style="{StaticResource KronoTitleNavigationButton}" IsEnabled="False"
+                                AutomationProperties.AutomationId="AppBack" AutomationProperties.Name="Go back" AutomationProperties.AcceleratorKey="Alt+Left">
+                            <FontIcon Glyph="&#xE72B;" FontSize="14"/>
+                        </Button>
+                        <Button x:Name="AppForward" Style="{StaticResource KronoTitleNavigationButton}" IsEnabled="False"
+                                AutomationProperties.AutomationId="AppForward" AutomationProperties.Name="Go forward" AutomationProperties.AcceleratorKey="Alt+Right">
+                            <FontIcon Glyph="&#xE72A;" FontSize="14"/>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
         </Grid>

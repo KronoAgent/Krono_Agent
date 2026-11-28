@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Input;
@@ -19,10 +18,8 @@ public sealed partial class MainWindow
 
     void InitializeAppNavigation()
     {
-        AppBack.Content = BrowserWorkspace.ToolbarIcon(Symbol.Back);
-        AppForward.Content = BrowserWorkspace.ToolbarIcon(Symbol.Forward);
-        KronoInputMotion.StyleButton(AppBack);
-        KronoInputMotion.StyleButton(AppForward);
+        KronoInputMotion.AttachFlatHover(AppBack);
+        KronoInputMotion.AttachFlatHover(AppForward);
         InitializeNavigationHitRegion();
         InitializeNavigationHints();
         AppBack.Click += (_, _) => NavigateHistory(-1);
@@ -124,17 +121,19 @@ public sealed partial class MainWindow
             // Use screen coordinates because Windows can deliver caption-area pointer
             // movement through the non-client path even beside interactive controls.
             var point = new Windows.Foundation.Point(cursor.X, cursor.Y);
-            var target = back?.GetBoundingRectangle().Contains(point) == true ? BackHintTarget :
-                forward?.GetBoundingRectangle().Contains(point) == true ? ForwardHintTarget : null;
+            var target = back?.GetBoundingRectangle().Contains(point) == true ? AppBack :
+                forward?.GetBoundingRectangle().Contains(point) == true ? AppForward : null;
             var now = Environment.TickCount64;
             if (target is null) { HideHint(); return; }
+            KronoInputMotion.SetFlatButtonHover(AppBack, target == AppBack);
+            KronoInputMotion.SetFlatButtonHover(AppForward, target == AppForward);
             if (!ReferenceEquals(hovered, target)) {
                 hovered = target;
                 enteredAt = NavigationHint.Visibility == Visibility.Visible ? now - 400 : now;
             }
             if (now - enteredAt < 400) return;
 
-            var label = target == BackHintTarget ? "Go back (Alt+Left)" : "Go forward (Alt+Right)";
+            var label = target == AppBack ? "Go back (Alt+Left)" : "Go forward (Alt+Right)";
             if (NavigationHint.Visibility == Visibility.Visible && NavigationHintText.Text == label) return;
             var origin = target.TransformToVisual(WindowLayout).TransformPoint(new(0, target.ActualHeight));
             NavigationHint.Margin = new Thickness(origin.X, origin.Y + 4, 0, 0);
@@ -151,6 +150,8 @@ public sealed partial class MainWindow
 
         void HideHint()
         {
+            KronoInputMotion.SetFlatButtonHover(AppBack, false);
+            KronoInputMotion.SetFlatButtonHover(AppForward, false);
             hovered = null;
             NavigationHint.Visibility = Visibility.Collapsed;
         }

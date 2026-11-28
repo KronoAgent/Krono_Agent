@@ -223,19 +223,6 @@ public static class KronoDesign
         }
     }
 
-    internal static void AnimateMenuOpening(FrameworkElement surface)
-    {
-        if (!new UISettings().AnimationsEnabled) return;
-        AnimateOpacity(surface, .35f);
-        ElementCompositionPreview.SetIsTranslationEnabled(surface, true);
-        var visual = ElementCompositionPreview.GetElementVisual(surface);
-        var animation = visual.Compositor.CreateVector3KeyFrameAnimation();
-        animation.InsertKeyFrame(0, new(0, -5, 0));
-        animation.InsertKeyFrame(1, System.Numerics.Vector3.Zero);
-        animation.Duration = TimeSpan.FromMilliseconds(135);
-        visual.StartAnimation("Translation", animation);
-    }
-
     internal static Task BeginThemeChange(FrameworkElement surface)
     {
         if (!new UISettings().AnimationsEnabled) return Task.CompletedTask;

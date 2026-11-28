@@ -512,6 +512,21 @@ function Capture([string]$Name, [switch]$Screen) {
     $bitmap.Save((Join-Path $ReportDirectory $Name), [Drawing.Imaging.ImageFormat]::Png)
     $graphics.Dispose(); $bitmap.Dispose()
 }
+function ClickNavigationButton([string]$Id, [switch]$CaptureHover) {
+    $bounds = WaitForBounds $Id
+    if (!(Find $Id).Current.IsEnabled) { throw "Expected $Id to be enabled" }
+    if (![KronoWindowCapture]::SetCursorPos([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))) {
+        throw "Could not move the pointer to $Id"
+    }
+    [KronoWindowCapture]::mouse_event(1, 1, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 150
+    if ($CaptureHover) {
+        $hint = if ($Id -eq 'AppBack') { 'Go back (Alt+Left)' } else { 'Go forward (Alt+Right)' }
+        Find $hint -ByName | Out-Null
+        Capture "native-$Id-hover.png" -Screen
+    }
+    if (![KronoWindowCapture]::ClickMouse(2, 4, 0)) { throw "Windows did not send a click to $Id" }
+}
 function TestWorkspaceInputs {
     $shell = New-Object -ComObject WScript.Shell
     if (!$shell.AppActivate($script:process.Id)) { throw 'Could not activate the terminal window' }
@@ -741,7 +756,7 @@ public static class PluginFixture {
     $windowPattern = $script:window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     if ($windowPattern.Current.WindowVisualState -ne [Windows.Automation.WindowVisualState]::Maximized) { throw 'Krono did not open maximized' }
     Find 'EmailInput' | Out-Null
-    if ($env:KRONO_SMOKE_SCOPE -in @('workspace-ui', 'runtime-workspaces', 'games-lifecycle', 'tray-lifecycle', 'arcade-ui', 'attachment-ui', 'menus-ui', 'settings-ui', 'visual-ui', 'navigation-ui', 'dropdown-ui', 'plugins-ui', 'local-model-ui', 'model-recovery-ui', 'markdown-ui', 'browser-feedback', 'plugins-layout', 'plugins-install-ui', 'appearance-layout', 'dropdown-empty-ui', 'desktop-notices', 'project-list-ui', 'project-draft-ui')) {
+    if ($env:KRONO_SMOKE_SCOPE -in @('workspace-ui', 'runtime-workspaces', 'games-lifecycle', 'tray-lifecycle', 'arcade-ui', 'attachment-ui', 'menus-ui', 'settings-ui', 'visual-ui', 'navigation-ui', 'title-navigation-ui', 'dropdown-ui', 'plugins-ui', 'local-model-ui', 'model-recovery-ui', 'markdown-ui', 'browser-feedback', 'plugins-layout', 'plugins-install-ui', 'appearance-layout', 'dropdown-empty-ui', 'desktop-notices', 'project-list-ui', 'project-draft-ui')) {
         SetValue 'EmailInput' 'native-fixture@example.com'
         SetValue 'PasswordInput' 'fixture-password'
         Invoke 'LoginButton'
@@ -1399,6 +1414,23 @@ public static class PluginFixture {
             Write-Output 'NATIVE_SMOKE_PASS: chat sidebar toggles, Settings keeps its sidebar and reopens on Account'
             return
         }
+        if ($env:KRONO_SMOKE_SCOPE -eq 'title-navigation-ui') {
+            SelectNav 'Settings'
+            SelectSettingsCategory 'Appearance'
+            SelectSettingsCategory 'Updates'
+            Invoke 'AppBack'
+            Find 'Appearance' | Out-Null
+            if (!(New-Object -ComObject WScript.Shell).AppActivate($script:process.Id)) { throw 'Could not activate Krono to test the title bar' }
+            $bounds = WaitForBounds 'SettingsCategories'
+            [KronoWindowCapture]::SetCursorPos([int]($bounds.Left + 10), [int]($bounds.Top + 10)) | Out-Null
+            Capture 'native-title-navigation.png' -Screen
+            ClickNavigationButton 'AppBack' -CaptureHover
+            Find 'Sign out' -ByName | Out-Null
+            ClickNavigationButton 'AppForward' -CaptureHover
+            Find 'Appearance' | Out-Null
+            Write-Output 'NATIVE_SMOKE_PASS: title-bar Back and Forward pointer clicks and hints'
+            return
+        }
         if ($env:KRONO_SMOKE_SCOPE -eq 'visual-ui') {
             if ($env:KRONO_SMOKE_MAXIMIZED -ne '1') {
                 $windowPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
@@ -1657,9 +1689,9 @@ public static class PluginFixture {
         if (Test-Path $faults) { Get-Content -LiteralPath $faults -Tail 12 | Write-Output }
         throw ('The back mouse button did not navigate exactly one step. Settings category: ' + $category)
     }
-    Invoke 'AppBack'
+    ClickNavigationButton 'AppBack'
     Find 'New project' -ByName | Out-Null
-    Invoke 'AppForward'
+    ClickNavigationButton 'AppForward'
     Find 'SettingsCategories' | Out-Null
     if (![KronoWindowCapture]::PressSideButton(2)) { throw 'Windows did not inject the forward mouse button' }
     Find 'Appearance' | Out-Null

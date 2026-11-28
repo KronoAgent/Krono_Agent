@@ -202,10 +202,7 @@ public sealed class KronoComboBox : ComboBox
             while (scope is not null && scope is not ContentDialog) scope = VisualTreeHelper.GetParent(scope);
             outsideRoot = scope as UIElement ?? XamlRoot?.Content;
             outsideRoot?.AddHandler(UIElement.PointerPressedEvent, outsidePress, true);
-            if (GetTemplateChild("PopupBorder") is FrameworkElement surface) {
-                surface.Width = ActualWidth;
-                KronoDesign.AnimateMenuOpening(surface);
-            }
+            if (GetTemplateChild("PopupBorder") is FrameworkElement surface) surface.Width = ActualWidth;
         };
         Items.VectorChanged += (_, _) => { if (Items.Count != 0) emptyMenu?.Hide(); };
         DropDownClosed += (_, _) => {
@@ -249,7 +246,6 @@ public sealed class KronoComboBox : ComboBox
                 Content = emptySurface, Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft,
                 FlyoutPresenterStyle = (Style)Application.Current.Resources["KronoEmptyDropdownPresenter"]
             };
-            emptyMenu.Opened += (_, _) => KronoDesign.AnimateMenuOpening(emptySurface);
         }
         emptySurface!.Width = ActualWidth;
         emptyMessage!.FontFamily = FontFamily;
@@ -321,13 +317,20 @@ internal static class KronoInputMotion
     }
 
     static readonly ConditionalWeakTable<Control, object> Attached = new();
-    static readonly ConditionalWeakTable<ButtonBase, Action> StyledButtons = new();
+    sealed record FlatButtonFeedback(Action Reset, Action<bool> SetPointerOver);
+    static readonly ConditionalWeakTable<ButtonBase, FlatButtonFeedback> StyledButtons = new();
 
     internal static void ResetFlatButtons(DependencyObject root)
     {
         foreach (var button in Descendants(root).OfType<ButtonBase>())
-            if (StyledButtons.TryGetValue(button, out var reset)) reset();
+            if (StyledButtons.TryGetValue(button, out var feedback)) feedback.Reset();
     }
+
+    internal static void SetFlatButtonHover(ButtonBase button, bool pointerOver)
+    {
+        if (StyledButtons.TryGetValue(button, out var feedback)) feedback.SetPointerOver(pointerOver);
+    }
+
     static readonly ConditionalWeakTable<FrameworkElement, CompositeTransform> SurfaceTransforms = new();
 
     internal static void AlignTextContent(Control field)
@@ -707,7 +710,14 @@ internal static class KronoInputMotion
             motion.Begin();
         }
         void Reset() { over = down = false; Update(true); }
-        StyledButtons.Add(button, Reset);
+        void SetPointerOver(bool pointerOver)
+        {
+            if (pointerOver == over) return;
+            over = pointerOver;
+            if (!over) down = false;
+            Update();
+        }
+        StyledButtons.Add(button, new(Reset, SetPointerOver));
         void BindTemplate()
         {
             button.ApplyTemplate();

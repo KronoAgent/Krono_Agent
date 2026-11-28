@@ -69,6 +69,17 @@
                 Margin="{TemplateBinding Padding}"/>
         </Grid>
     </ControlTemplate>
+    <Style x:Key="KronoTitleNavigationButton" TargetType="Button">
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="UseSystemFocusVisuals" Value="True"/>
+    </Style>
     <Style x:Key="KronoButtonBase" TargetType="ButtonBase">
         <Setter Property="Template" Value="{StaticResource KronoPressTemplate}" />
         <Setter Property="MinHeight" Value="{ThemeResource KronoControlMinHeight}" />

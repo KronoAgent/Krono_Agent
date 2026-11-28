@@ -51,10 +51,7 @@ public sealed partial class BrowserWorkspace : Grid, IDisposable
         var menu = new Flyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight };
         var actions = new StackPanel { MinWidth = 180, Spacing = 3 };
         menu.Content = actions;
-        menu.Opened += (_, _) => {
-            KronoDesign.RefreshTypography(actions);
-            KronoDesign.AnimateMenuOpening(actions);
-        };
+        menu.Opening += (_, _) => KronoDesign.RefreshTypography(actions);
         menu.Closed += (_, _) => KronoInputMotion.ResetFlatButtons(actions);
         void AddMenuAction(string label, Symbol symbol, Action action)
         {
